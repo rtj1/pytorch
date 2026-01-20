@@ -3336,6 +3336,7 @@ class InstructionTranslatorBase(
                     and not self.is_tracing_resume_prologue
                     and not self.active_generic_context_managers
                     and self.output.current_tracer.parent is None
+                    and self.parent is None  # Not inside an inlined function
                 )
                 log.debug(
                     "BUILD_LIST comprehension: can_speculate=%s, depth=%s",
@@ -3350,7 +3351,7 @@ class InstructionTranslatorBase(
                             "BUILD_LIST: speculation failed, handling comprehension graph break"
                         )
                         # Graph break occurred in comprehension on previous attempt
-                        self._handle_comprehension_graph_break(inst, is_dict=False)
+                        self._handle_comprehension_graph_break(inst)
                         return
                     # Store speculation for later graph break handling
                     log.debug("BUILD_LIST: storing comprehension speculation")
@@ -3411,6 +3412,7 @@ class InstructionTranslatorBase(
                     and not self.is_tracing_resume_prologue
                     and not self.active_generic_context_managers
                     and self.output.current_tracer.parent is None
+                    and self.parent is None  # Not inside an inlined function
                 )
                 log.debug(
                     "BUILD_MAP comprehension: can_speculate=%s, depth=%s",
@@ -3425,7 +3427,7 @@ class InstructionTranslatorBase(
                             "BUILD_MAP: speculation failed, handling comprehension graph break"
                         )
                         # Graph break occurred in comprehension on previous attempt
-                        self._handle_comprehension_graph_break(inst, is_dict=True)
+                        self._handle_comprehension_graph_break(inst)
                         return
                     # Store speculation for later graph break handling
                     log.debug("BUILD_MAP: storing comprehension speculation")
@@ -4387,7 +4389,7 @@ class InstructionTranslatorBase(
         return -1
 
     def _handle_comprehension_graph_break(
-        self, inst: Instruction, is_dict: bool
+        self, inst: Instruction
     ) -> None:
         """Handle graph break for a comprehension by skipping the comprehension bytecode.
 
@@ -4749,6 +4751,7 @@ class InstructionTranslatorBase(
         self.prefix_insts = []
         self.exn_vt_stack = exn_vt_stack
         self.latest_bytecode_queue = deque(maxlen=20)
+        self._comprehension_depth = 0  # Track nesting level for comprehension speculation
 
         # Properties of the input/output code
         self.instructions: list[Instruction] = instructions
@@ -4899,7 +4902,6 @@ class InstructionTranslator(InstructionTranslatorBase):
         )
 
         self._throw_if_in_functorch()
-        self._comprehension_depth = 0  # Track nesting level for comprehension speculation
 
         # as soon as we create the tracing context we should keep it active, so any calls
         # into dynamo apis can rely on finding it

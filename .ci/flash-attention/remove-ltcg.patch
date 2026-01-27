@@ -1,0 +1,10 @@
+--- a/hopper/setup.py
++++ b/hopper/setup.py
+@@ -193,6 +193,7 @@ def _write_ninja_file(path,
+         cuda_post_cflags_sm100 = [s if s != 'arch=compute_90a,code=sm_90a' else 'arch=compute_100a,code=sm_100a' for s in cuda_post_cflags]
+         flags.append(f'cuda_post_cflags_sm100 = {" ".join(cuda_post_cflags_sm100)}')
+     flags.append(f'cuda_dlink_post_cflags = {" ".join(cuda_dlink_post_cflags)}')
++    ldflags.remove("/LTCG")
+     flags.append(f'ldflags = {" ".join(ldflags)}')
+
+     # Turn into absolute paths so we can emit them into the ninja build

@@ -9,7 +9,6 @@ import torch.distributed as dist
 import torch.nn as nn
 from torch.distributed.device_mesh import _get_device_handle
 from torch.distributed.fsdp._common_utils import _named_parameters_with_duplicates
-from torch.distributed.tensor import Shard
 from torch.distributed.utils import _apply_to_tensors
 from torch.profiler import record_function
 from torch.utils.hooks import RemovableHandle
@@ -34,6 +33,7 @@ from ._fsdp_common import (
     FSDPMeshInfo,
     HSDPMeshInfo,
     is_bw,
+    ShardPlacementFnResult,
     TrainingState,
 )
 from ._fsdp_param import alloc_storage, FSDPParam, ParamModuleInfo, ShardedState
@@ -131,7 +131,7 @@ class FSDPParamGroup:
         mesh_info: DataParallelMeshInfo,
         post_forward_mesh_info: FSDPMeshInfo | None,
         device: torch.device,
-        shard_placement_fn: Callable[[nn.Parameter], Shard | None] | None,
+        shard_placement_fn: Callable[[nn.Parameter], ShardPlacementFnResult] | None,
         mp_policy: MixedPrecisionPolicy,
         offload_policy: OffloadPolicy,
     ):
@@ -336,6 +336,9 @@ class FSDPParamGroup:
             return
 
         with record_function(self._with_fqn("FSDP::all_gather")):
+            mesh_dim_names = None
+            if self.mesh_info and self.mesh_info.mesh.mesh_dim_names:
+                mesh_dim_names = self.mesh_info.mesh.mesh_dim_names
             self._all_gather_result = foreach_all_gather(
                 self.fsdp_params,
                 self._all_gather_process_group,
@@ -343,6 +346,8 @@ class FSDPParamGroup:
                 *self.comm_ctx.get_all_gather_streams(async_op, self._training_state),
                 self.device,
                 self._all_gather_comm,
+                self._module_fqn,
+                mesh_dim_names,
             )
 
     def wait_for_unshard(self):
@@ -804,8 +809,15 @@ class FSDPParamGroup:
         return self.mesh_info.replicate_process_group
 
     def _with_fqn(self, label: str) -> str:
+        parts = []
         if self._module_fqn:
-            return f"{label} ({self._module_fqn})"
+            parts.append(self._module_fqn)
+        # Add mesh dim names to distinguish param groups with different meshes
+        if self.mesh_info and self.mesh_info.mesh.mesh_dim_names:
+            mesh_dims = ",".join(self.mesh_info.mesh.mesh_dim_names)
+            parts.append(f"mesh=[{mesh_dims}]")
+        if parts:
+            return f"{label} ({', '.join(parts)})"
         return label
 
     def __repr__(self):

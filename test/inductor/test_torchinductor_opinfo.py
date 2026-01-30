@@ -991,10 +991,6 @@ inductor_one_sample["xpu"] = {
 # TODO: Fix these so strides match.
 inductor_skip_exact_stride = {
     "complex",
-    "empty_permuted",
-    "fft.irfftn",
-    "fft.irfft2",
-    "linalg.diagonal",
     "linalg.eigvals",  # Fails for ROCM
     "linalg.lu",
     "linalg.lu_factor",
@@ -1002,15 +998,14 @@ inductor_skip_exact_stride = {
     "linalg.norm",
     "linalg.norm.subgradients_at_zero",
     "linalg.pinv.singular",
-    "linalg.svdvals",
+    "linalg.qr",
     "linalg.solve",
     "linalg.solve_ex",
-    "linalg.qr",
+    "linalg.svdvals",
     "matmul",
     "__rmatmul__",
     "nn.functional.adaptive_avg_pool1d",
     "nn.functional.group_norm",
-    "nn.functional.linear",
     "nn.functional.max_pool2d",
     "nn.functional.unfold",
     "ormqr",

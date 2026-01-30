@@ -184,7 +184,8 @@ def requires_cuda_with_enough_memory(min_mem_required):
         elif torch.cuda.is_available():
             total_memory = torch.cuda.get_device_properties().total_memory
         if (
-            not torch.accelerator.is_available()
+            total_memory is None
+            or not torch.accelerator.is_available()
             or total_memory < min_mem_required
         ):
             return unittest.skip(

@@ -886,12 +886,19 @@ class CudaReproTests(TestCase):
         w = torch.rand(3, 3, device=device_type)
         b = torch.rand(3, device=device_type)
         x = torch.rand(3, device=device_type)
+
+        def reset_memory_history(value: bool):
+            if torch.xpu.is_available():
+                torch.xpu._record_memory_history(value)
+            else:
+                torch.cuda.memory._record_memory_history(value)
+
         try:
             torch.accelerator.memory.empty_cache()
-            torch.get_device_module(device_type)._record_memory_history(True)
+            reset_memory_history(True)
             r = fn(x, w, b)
         finally:
-            torch.get_device_module(device_type)._record_memory_history(False)
+            reset_memory_history(False)
         snapshot = str(torch.accelerator.memory._snapshot())
         self.assertTrue("called_inside_compile" in snapshot)
 
@@ -2727,7 +2734,7 @@ def triton_poi_fused_add_reflection_pad2d_0(in_ptr0, in_ptr1, out_ptr0, xnumel, 
 
                 self.assertEqual(eager_div, compiled_div)
 
-    @skipIfXpu(msg="triton dependency")
+    @skipIfXpu(msg="triton dependency - xpu-ops: 2554")
     @config.patch({"eager_numerics.division_rounding": False})
     @xfailIfROCm
     def test_truediv_base_not_bitwise_equivalent(self):
